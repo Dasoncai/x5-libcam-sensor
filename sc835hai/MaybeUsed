@@ -1,0 +1,94 @@
+/* gcc -o gain_lut gain_lut.c -lm
+ *
+ * for sc835hai, get gain lut
+ * */
+
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+
+#define GAIN_BASE 3.1
+
+typedef struct {
+    unsigned int dgain;
+    unsigned int d_fine_gain;
+    unsigned int gain;
+} IntGainValue;
+
+
+double calculate_gain(int index) {
+    return round(pow(2, index / 32.0) * 1000) / 1000;
+}
+
+unsigned int calculate_fine_gain(double gain) {
+        double d_fine_gain = 0;
+        unsigned int fine_gain = 0;
+        d_fine_gain = 2 * ((float)(gain - 1.0) / 15.625) * 1000;
+        fine_gain = 128 + (int)ceil(d_fine_gain);
+        return fine_gain;
+}
+
+unsigned int calculate_fine_gain_over(double gain) {
+        double d_fine_gain = 0;
+        unsigned int fine_gain = 0;
+        d_fine_gain = 2 * ((float)(gain - 2.0) / 15.625 / 2) * 1000;
+        fine_gain = 128 + (int)ceil(d_fine_gain);
+        return fine_gain;
+}
+
+int main() {
+
+        float float_gain_value = 0;
+        IntGainValue gain_value = {0};
+
+        for(int index = 0; index < 256; index ++) {
+                double gain = calculate_gain(index);
+
+                if (gain < 2.0) {
+                        gain_value.gain = 0x00;
+                        float_gain_value = (float)(gain / 1.0);
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else if (gain < GAIN_BASE) {
+                        gain_value.gain = 0x01;
+                        float_gain_value = (float)(gain / 2.0);
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else if (gain < GAIN_BASE * 2) {
+                        gain_value.gain = 0x40;
+                        float_gain_value = (float)(gain / (GAIN_BASE * 1));
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else if (gain < GAIN_BASE * 4) {
+                        gain_value.gain = 0x48;
+                        float_gain_value = (float)(gain / (GAIN_BASE * 2));
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else if (gain < GAIN_BASE * 8) {
+                        gain_value.gain = 0x49;
+                        float_gain_value = (float)(gain / (GAIN_BASE * 4));
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else if (gain < GAIN_BASE * 16) {
+                        gain_value.gain = 0x4B;
+                        float_gain_value = (float)(gain / (GAIN_BASE * 8));
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else if (gain < GAIN_BASE * 32) {
+                        gain_value.gain = 0x4F;
+                        float_gain_value = (float)(gain / (GAIN_BASE * 16));
+                        gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                } else {
+                        gain_value.gain = 0x5F;
+                        float_gain_value = (float)(gain / (GAIN_BASE * 32));
+                        if (float_gain_value >= 2.0) {
+                                gain_value.dgain = 0x01;
+                                gain_value.d_fine_gain = calculate_fine_gain_over(float_gain_value);
+                        } else {
+                                gain_value.d_fine_gain = calculate_fine_gain(float_gain_value);
+                        }
+                }
+
+               // printf("[%d, %.3lf] [0x%02x, 0x%02x, 0x%02x]\n",
+                 //       index, gain, gain_value.gain, gain_value.dgain, gain_value.d_fine_gain);
+                printf("0x%02x%02x%02x,\n",
+                                gain_value.gain, gain_value.dgain, gain_value.d_fine_gain);
+        }
+
+        return 0;
+}
+
